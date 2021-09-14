@@ -1,5 +1,6 @@
-import React, { Component } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   Platform,
   ScrollView,
   Text,
@@ -14,6 +15,7 @@ import RtcEngine, {
 
 import requestCameraAndAudioPermission from './components/Permission';
 import styles from './components/Style';
+import ExpressoError, { userErrors } from './ExpressoError';
 
 interface Props {}
 
@@ -31,88 +33,91 @@ interface State {
   peerIds: number[];
 }
 
-export default class App extends Component<Props, State> {
-  _engine?: RtcEngine;
+const App: React.FC = (props:Props) => {
+  var _engine: RtcEngine
 
-  constructor(props) {
-    super(props);
-    this.state = {
-      appId: YourAppId,
-      token: YourToken,
-      channelName: 'channel-x',
-      joinSucceed: false,
-      peerIds: [],
-    };
-    if (Platform.OS === 'android') {
-      // Request required permissions from Android
-      requestCameraAndAudioPermission().then(() => {
-        console.log('requested!');
-      });
-    }
+  const thisState:State = {
+    appId: YourAppId,
+    token: YourToken,
+    channelName: 'channel-x',
+    joinSucceed: false,
+    peerIds: [],
   }
 
-  componentDidMount() {
-    this.init();
+  const [state, setState] = useState(thisState)
+
+  if (Platform.OS === 'android') {
+    // Request required permissions from Android
+    requestCameraAndAudioPermission().then(() => {
+      console.log('requested!')
+    })
   }
+
+  useEffect(() => {
+    init()
+  }, [])
 
   /**
    * @name init
    * @description Function to initialize the Rtc Engine, attach event listeners and actions
    */
-  init = async () => {
-    const { appId } = this.state;
-    this._engine = await RtcEngine.create(appId);
-    await this._engine.enableVideo();
+  const init = async () => {
+    const { appId } = state
+    _engine = await RtcEngine.create(appId);
+    await _engine.enableVideo();
 
-    this._engine.addListener('Warning', (warn) => {
+    _engine.addListener('Warning', (warn) => {
       console.log('Warning', warn);
     });
 
-    this._engine.addListener('Error', (err) => {
-      console.log('Error', err);
+    _engine.addListener('Error', (err) => {
+      throw new ExpressoError(err);
     });
 
-    this._engine.addListener('UserJoined', (uid, elapsed) => {
+    _engine.addListener('UserJoined', (uid, elapsed) => {
       console.log('UserJoined', uid, elapsed);
       // Get current peer IDs
-      const { peerIds } = this.state;
+      const { peerIds } = state;
       // If new user
       if (peerIds.indexOf(uid) === -1) {
-        this.setState({
+        setState({
+          ...state,
           // Add peer ID to state array
           peerIds: [...peerIds, uid],
         });
       }
     });
 
-    this._engine.addListener('UserOffline', (uid, reason) => {
+    _engine.addListener('UserOffline', (uid, reason) => {
       console.log('UserOffline', uid, reason);
-      const { peerIds } = this.state;
-      this.setState({
+      const { peerIds } = state;
+      setState({
+        ...state,
         // Remove peer ID from state array
         peerIds: peerIds.filter((id) => id !== uid),
       });
     });
 
     // If Local user joins RTC channel
-    this._engine.addListener('JoinChannelSuccess', (channel, uid, elapsed) => {
+    _engine.addListener('JoinChannelSuccess', (channel, uid, elapsed) => {
       console.log('JoinChannelSuccess', channel, uid, elapsed);
       // Set state variable to true
-      this.setState({
-        joinSucceed: true,
-      });
+      setState({
+        ...state,
+        joinSucceed: true
+      })
     });
-  };
+  }
 
   /**
    * @name startCall
    * @description Function to start the call
    */
-  startCall = async () => {
+  const startCall = async () => {
     // Join Channel using null token and channel name
-    await this._engine?.joinChannel(
-      this.state.token,
-      this.state.channelName,
+    await _engine?.joinChannel(
+      state.token,
+      state.channelName,
       null,
       0
     );
@@ -122,45 +127,27 @@ export default class App extends Component<Props, State> {
    * @name endCall
    * @description Function to end the call
    */
-  endCall = async () => {
-    await this._engine?.leaveChannel();
-    this.setState({ peerIds: [], joinSucceed: false });
+  const endCall = async () => {
+    await _engine?.leaveChannel();
+    setState({ ...state, peerIds: [], joinSucceed: false });
   };
 
-  render() {
-    return (
-      <View style={styles.max}>
-        <View style={styles.max}>
-          <View style={styles.buttonHolder}>
-            <TouchableOpacity onPress={this.startCall} style={styles.button}>
-              <Text style={styles.buttonText}> Start Call </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={this.endCall} style={styles.button}>
-              <Text style={styles.buttonText}> End Call </Text>
-            </TouchableOpacity>
-          </View>
-          {this._renderVideos()}
-        </View>
-      </View>
-    );
-  }
-
-  _renderVideos = () => {
-    const { joinSucceed } = this.state;
+  const _renderVideos = () => {
+    const { joinSucceed } = state;
     return joinSucceed ? (
       <View style={styles.fullView}>
         <RtcLocalView.SurfaceView
           style={styles.max}
-          channelId={this.state.channelName}
+          channelId={state.channelName}
           renderMode={VideoRenderMode.Hidden}
         />
-        {this._renderRemoteVideos()}
+        {_renderRemoteVideos()}
       </View>
     ) : null;
   };
 
-  _renderRemoteVideos = () => {
-    const { peerIds } = this.state;
+  const _renderRemoteVideos = () => {
+    const { peerIds } = state;
     return (
       <ScrollView
         style={styles.remoteContainer}
@@ -172,7 +159,7 @@ export default class App extends Component<Props, State> {
             <RtcRemoteView.SurfaceView
               style={styles.remote}
               uid={value}
-              channelId={this.state.channelName}
+              channelId={state.channelName}
               renderMode={VideoRenderMode.Hidden}
               zOrderMediaOverlay={true}
             />
@@ -181,4 +168,33 @@ export default class App extends Component<Props, State> {
       </ScrollView>
     );
   };
+
+  ErrorUtils.setGlobalHandler((e) => {
+    console.log('Expresso Logger', {
+      code: e.message,
+      message: e._userMessage ? e._userMessage : ''
+    });
+
+    if (userErrors.includes(e.message) && e._userMessage) {
+      Alert.alert(e._userMessage)
+    }
+  })
+
+  return (
+    <View style={styles.max}>
+      <View style={styles.max}>
+        <View style={styles.buttonHolder}>
+          <TouchableOpacity onPress={() => startCall()} style={styles.button}>
+            <Text style={styles.buttonText}> Start Call </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => endCall()} style={styles.button}>
+            <Text style={styles.buttonText}> End Call </Text>
+          </TouchableOpacity>
+        </View>
+        {() => _renderVideos()}
+      </View>
+    </View>
+  );
 }
+
+export default App
