@@ -170,14 +170,19 @@ const App: React.FC = (props:Props) => {
   };
 
   ErrorUtils.setGlobalHandler((e) => {
-    console.log('Expresso Logger', {
-      code: e.message,
-      message: e._userMessage ? e._userMessage : ''
-    });
+    if (e.name === 'ExpressoError') {
+      console.log('Expresso Logger', {
+        code: e.message,
+        message: e._userMessage ? e._userMessage : ''
+      });
 
-    if (userErrors.includes(e.message) && e._userMessage) {
-      Alert.alert(e._userMessage)
+      if (userErrors.includes(e.message) && e._userMessage) {
+        Alert.alert(e._userMessage)
+      }
+    } else {
+      console.log(e);
     }
+
   })
 
   return (
