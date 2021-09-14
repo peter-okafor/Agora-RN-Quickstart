@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   Platform,
   ScrollView,
   Text,
@@ -14,6 +15,7 @@ import RtcEngine, {
 
 import requestCameraAndAudioPermission from './components/Permission';
 import styles from './components/Style';
+import ExpressoError, { userErrors } from './ExpressoError';
 
 interface Props {}
 
@@ -69,7 +71,7 @@ const App: React.FC = (props:Props) => {
     });
 
     _engine.addListener('Error', (err) => {
-      console.log('Error', err);
+      throw new ExpressoError(err);
     });
 
     _engine.addListener('UserJoined', (uid, elapsed) => {
@@ -166,6 +168,17 @@ const App: React.FC = (props:Props) => {
       </ScrollView>
     );
   };
+
+  ErrorUtils.setGlobalHandler((e) => {
+    console.log('Expresso Logger', {
+      code: e.message,
+      message: e._userMessage ? e._userMessage : ''
+    });
+
+    if (userErrors.includes(e.message) && e._userMessage) {
+      Alert.alert(e._userMessage)
+    }
+  })
 
   return (
     <View style={styles.max}>
