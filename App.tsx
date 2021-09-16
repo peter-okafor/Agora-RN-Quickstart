@@ -15,7 +15,7 @@ import RtcEngine, {
 
 import requestCameraAndAudioPermission from './components/Permission';
 import styles from './components/Style';
-import ExpressoError, { userErrors } from './ExpressoError';
+import ExpressoError from './ExpressoError';
 
 interface Props {}
 
@@ -67,11 +67,13 @@ const App: React.FC = (props:Props) => {
     await _engine.enableVideo();
 
     _engine.addListener('Warning', (warn) => {
-      console.log('Warning', warn);
+      const warning = new ExpressoError(warn)
+      Alert.alert(warning._userMessage)
     });
 
     _engine.addListener('Error', (err) => {
-      throw new ExpressoError(err);
+      const error = new ExpressoError(err)
+      console.log(error._userMessage);
     });
 
     _engine.addListener('UserJoined', (uid, elapsed) => {
@@ -168,22 +170,6 @@ const App: React.FC = (props:Props) => {
       </ScrollView>
     );
   };
-
-  ErrorUtils.setGlobalHandler((e) => {
-    if (e.name === 'ExpressoError') {
-      console.log('Expresso Logger', {
-        code: e.message,
-        message: e._userMessage ? e._userMessage : ''
-      });
-
-      if (userErrors.includes(e.message) && e._userMessage) {
-        Alert.alert(e._userMessage)
-      }
-    } else {
-      console.log(e);
-    }
-
-  })
 
   return (
     <View style={styles.max}>
